@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pi Hosting Test</title>
+</head>
+<body style="margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f4f6f8; color: #1a1a1a;">
+  <main style="max-width: 640px; margin: 64px auto; padding: 32px; background: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+    <h1 style="margin-top: 0; color: #0b3d91;">It works!</h1>
+    <p style="font-size: 18px; line-height: 1.5;">This page is being served from a Raspberry Pi on the school network.</p>
+
+    <!-- Change this number, commit, and refresh in about a minute to test auto-deploy -->
+    <p style="font-size: 28px; font-weight: bold; margin: 24px 0; padding: 16px; background: #e8f0fe; border-left: 6px solid #0b3d91;">Version 1</p>
+
+    <p style="font-size: 16px; color: #444444;">Page loaded at: <span id="loaded">(JavaScript off)</span></p>
+  </main>
+  <script>
+    document.getElementById("loaded").textContent = new Date().toLocaleString();
+  </script>
+</body>
+</html>
