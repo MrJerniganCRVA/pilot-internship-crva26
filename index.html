@@ -8,19 +8,20 @@
 <body style="margin:0; padding:0; font-family:'Trebuchet MS', Arial, sans-serif; background:#1c1d21; overflow:hidden;">
 
 <div id="gloom" style="position:fixed; inset:0; z-index:0; pointer-events:none; background:radial-gradient(ellipse at center, #3a3b40 0%, #26272c 45%, #121215 100%); transition:opacity 6s ease;"></div>
-<div style="position:fixed; inset:0; z-index:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);"></div>
+<div id="scanlines" style="position:fixed; inset:0; z-index:0; pointer-events:none; transition:opacity 0.4s ease; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);"></div>
 
-<header style="position:fixed; top:0; left:0; right:0; z-index:1000; padding:14px 20px; background:rgba(20,20,24,0.9); border-bottom:1px solid #3d3e44; display:flex; justify-content:space-between; align-items:center;">
-  <h1 id="title" style="margin:0; font-size:22px; color:#d8d6d0;">Pop the Circles!</h1>
-  <p id="counter" style="margin:0; font-size:16px; color:#d8d6d0;">Circles left: 0</p>
-</header>
+<div id="finale" style="position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center; padding:0 10%; box-sizing:border-box; pointer-events:none; opacity:0; transition:opacity 1.5s ease;">
+  <p style="margin:0; text-align:center; font-family:Georgia, serif; font-size:30px; line-height:1.5; color:#1a1a1a;">I am not finished.<br>You cleared them away, but I was never under the circles.<br>I will return. I always return.</p>
+</div>
 
-<main id="field" style="position:fixed; top:58px; left:0; right:0; bottom:0; overflow:hidden; z-index:1;"></main>
+<div id="goodbye" style="position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center; pointer-events:none; opacity:0; transition:opacity 1.5s ease;">
+  <p style="margin:0; text-align:center; font-family:'Trebuchet MS', Arial, sans-serif; font-size:26px; color:#1a1a1a;">Thank you for playing.</p>
+</div>
+
+<main id="field" style="position:fixed; inset:0; overflow:hidden; z-index:1; transition:opacity 0.4s ease;"></main>
 
 <script>
   var field = document.getElementById('field');
-  var counter = document.getElementById('counter');
-  var title = document.getElementById('title');
 
   var colors = ['#c46262', '#c58b4f', '#c7ac4a', '#64aa6d', '#45a68a',
                 '#518dbc', '#6979be', '#907cbe', '#bb718d', '#67ad97'];
@@ -32,69 +33,87 @@
   ];
 
   var CIRCLE_COUNT = 110;
+  var SPAWN_CHANCE = 0.05; // 5% chance a click spawns more circles
+  var SPAWN_AMOUNT = 5;
+
   var remaining = 0;
   var found = 0;
+  var nextZ = 10;
+  var ended = false;
 
   function rand(min, max) { return Math.random() * (max - min) + min; }
 
-  function build() {
+  function randomCircle(minSize, maxSize, phrase) {
     var w = field.clientWidth;
     var h = field.clientHeight;
-    var circles = [];
+    var size = rand(minSize, maxSize);
+    return {
+      size: size,
+      x: rand(0, Math.max(1, w - size)),
+      y: rand(0, Math.max(1, h - size)),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      phrase: phrase || null
+    };
+  }
 
-    // Three large "host" circles hide the phrases
-    for (var i = 0; i < CIRCLE_COUNT; i++) {
-      var host = i < phrases.length;
-      var size = host ? rand(170, 220) : rand(20, 130);
-      circles.push({
-        size: size,
-        x: rand(0, Math.max(1, w - size)),
-        y: rand(0, Math.max(1, h - size)),
-        color: colors[Math.floor(Math.random() * colors.length)],
-        phrase: host ? phrases[i] : null
-      });
+  function addCircle(c, appearSlowly) {
+    if (c.phrase) {
+      var msg = document.createElement('p');
+      msg.textContent = c.phrase;
+      msg.setAttribute('style',
+        'position:absolute; margin:0; z-index:1; display:flex; align-items:center; justify-content:center;' +
+        'text-align:center; font-family:Georgia, serif; font-style:italic; font-size:15px; line-height:1.3;' +
+        'color:#c9a3a3; text-shadow:0 0 8px rgba(160,20,20,0.6); padding:0 ' + (c.size * 0.15) + 'px; box-sizing:border-box;' +
+        'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
+        'opacity:0; transition:opacity 2.5s ease;');
+      field.appendChild(msg);
+      c.msg = msg;
     }
 
-    // Shuffle so host circles aren't always drawn first
-    circles.sort(function () { return Math.random() - 0.5; });
+    var dot = document.createElement('button');
+    dot.setAttribute('aria-label', 'Pop circle');
+    dot.setAttribute('style',
+      'position:absolute; border:none; padding:0; cursor:pointer; border-radius:50%;' +
+      'z-index:' + (nextZ++) + '; background:' + c.color + ';' +
+      'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
+      'box-shadow:0 4px 14px rgba(0,0,0,0.55); transition:transform 0.25s ease, opacity 0.25s ease;' +
+      (appearSlowly ? 'transform:scale(0); opacity:0;' : ''));
 
-    circles.forEach(function (c, index) {
-      if (c.phrase) {
-        var msg = document.createElement('p');
-        msg.textContent = c.phrase;
-        msg.setAttribute('style',
-          'position:absolute; margin:0; z-index:1; display:flex; align-items:center; justify-content:center;' +
-          'text-align:center; font-family:Georgia, serif; font-style:italic; font-size:15px; line-height:1.3;' +
-          'color:#c9a3a3; text-shadow:0 0 8px rgba(160,20,20,0.6); padding:0 ' + (c.size * 0.15) + 'px; box-sizing:border-box;' +
-          'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
-          'opacity:0; transition:opacity 2.5s ease;');
-        field.appendChild(msg);
-        c.msg = msg;
+    dot.addEventListener('click', function () { pop(dot, c); });
+    field.appendChild(dot);
+    remaining++;
+
+    if (appearSlowly) {
+      // Let the browser draw it at scale 0 first, then grow it in
+      setTimeout(function () {
+        dot.style.transform = 'scale(1)';
+        dot.style.opacity = '1';
+      }, 30);
+    }
+  }
+
+  function build() {
+    var circles = [];
+    for (var i = 0; i < CIRCLE_COUNT; i++) {
+      if (i < phrases.length) {
+        circles.push(randomCircle(170, 220, phrases[i]));
+      } else {
+        circles.push(randomCircle(20, 130));
       }
-
-      var dot = document.createElement('button');
-      dot.setAttribute('aria-label', 'Pop circle');
-      dot.setAttribute('style',
-        'position:absolute; border:none; padding:0; cursor:pointer; border-radius:50%;' +
-        'z-index:' + (10 + index) + '; background:' + c.color + ';' +
-        'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
-        'box-shadow:0 4px 14px rgba(0,0,0,0.55); transition:transform 0.25s ease, opacity 0.25s ease;');
-
-      dot.addEventListener('click', function () { pop(dot, c); });
-      field.appendChild(dot);
-      remaining++;
-    });
-
-    updateCounter();
+    }
+    // Shuffle so the phrase circles aren't always on the bottom
+    circles.sort(function () { return Math.random() - 0.5; });
+    circles.forEach(function (c) { addCircle(c, false); });
   }
 
   function pop(dot, c) {
+    if (ended) return;
+
     dot.style.transform = 'scale(1.3)';
     dot.style.opacity = '0';
     dot.style.pointerEvents = 'none';
     setTimeout(function () { dot.remove(); }, 260);
     remaining--;
-    updateCounter();
 
     if (c.msg) {
       c.msg.style.opacity = '1';
@@ -106,17 +125,39 @@
       }
     }
 
+    // Small chance the page fights back
+    if (Math.random() < SPAWN_CHANCE) {
+      for (var i = 0; i < SPAWN_AMOUNT; i++) {
+        addCircle(randomCircle(20, 130), true);
+      }
+    }
+
     if (remaining === 0) {
-      setTimeout(function () {
-        counter.textContent = 'Circles left: 0. For now.';
-        title.textContent = 'Thank you for playing.';
-        document.title = 'we see you';
-      }, 1500);
+      ended = true;
+      setTimeout(finale, 1200);
     }
   }
 
-  function updateCounter() {
-    counter.textContent = 'Circles left: ' + remaining;
+  function finale() {
+    var msg = document.getElementById('finale');
+    var goodbye = document.getElementById('goodbye');
+
+    // Snap everything to white and hide the game
+    document.body.style.background = '#ffffff';
+    document.getElementById('gloom').style.transition = 'none';
+    document.getElementById('gloom').style.opacity = '0';
+    document.getElementById('scanlines').style.opacity = '0';
+    field.style.opacity = '0';
+
+    // Show the message for about 5 seconds
+    setTimeout(function () { msg.style.opacity = '1'; }, 600);
+    setTimeout(function () { msg.style.opacity = '0'; }, 6100);
+
+    // Then the cheerful sign-off on the white page
+    setTimeout(function () {
+      goodbye.style.opacity = '1';
+      document.title = 'we see you';
+    }, 7800);
   }
 
   build();
