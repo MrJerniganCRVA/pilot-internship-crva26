@@ -1,22 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pi Hosting Test</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pop the Circles!</title>
 </head>
-<body style="margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f4f6f8; color: #1a1a1a;">
-  <main style="max-width: 640px; margin: 64px auto; padding: 32px; background: #ffffff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-    <h1 style="margin-top: 0; color: #0b3d91;">It works!</h1>
-    <p style="font-size: 18px; line-height: 1.5;">This page is being served from a Raspberry Pi on the school network.</p>
+<body style="margin:0; padding:0; font-family:'Trebuchet MS', Arial, sans-serif; background:#1c1d21; overflow:hidden;">
 
-    <!-- Change this number, commit, and refresh in about a minute to test auto-deploy -->
-    <p style="font-size: 28px; font-weight: bold; margin: 24px 0; padding: 16px; background: #e8f0fe; border-left: 6px solid #0b3d91;">Version 1</p>
+<div id="gloom" style="position:fixed; inset:0; z-index:0; pointer-events:none; background:radial-gradient(ellipse at center, #3a3b40 0%, #26272c 45%, #121215 100%); transition:opacity 6s ease;"></div>
+<div style="position:fixed; inset:0; z-index:0; pointer-events:none; background:repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 3px);"></div>
 
-    <p style="font-size: 16px; color: #444444;">Page loaded at: <span id="loaded">(JavaScript off)</span></p>
-  </main>
-  <script>
-    document.getElementById("loaded").textContent = new Date().toLocaleString();
-  </script>
+<header style="position:fixed; top:0; left:0; right:0; z-index:1000; padding:14px 20px; background:rgba(20,20,24,0.9); border-bottom:1px solid #3d3e44; display:flex; justify-content:space-between; align-items:center;">
+  <h1 id="title" style="margin:0; font-size:22px; color:#d8d6d0;">Pop the Circles!</h1>
+  <p id="counter" style="margin:0; font-size:16px; color:#d8d6d0;">Circles left: 0</p>
+</header>
+
+<main id="field" style="position:fixed; top:58px; left:0; right:0; bottom:0; overflow:hidden; z-index:1;"></main>
+
+<script>
+  var field = document.getElementById('field');
+  var counter = document.getElementById('counter');
+  var title = document.getElementById('title');
+
+  var colors = ['#c46262', '#c58b4f', '#c7ac4a', '#64aa6d', '#45a68a',
+                '#518dbc', '#6979be', '#907cbe', '#bb718d', '#67ad97'];
+
+  var phrases = [
+    'you are not the first one to click here.',
+    'the last visitor never finished. they are still under here.',
+    'it has been watching you count.'
+  ];
+
+  var CIRCLE_COUNT = 110;
+  var remaining = 0;
+  var found = 0;
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  function build() {
+    var w = field.clientWidth;
+    var h = field.clientHeight;
+    var circles = [];
+
+    // Three large "host" circles hide the phrases
+    for (var i = 0; i < CIRCLE_COUNT; i++) {
+      var host = i < phrases.length;
+      var size = host ? rand(170, 220) : rand(20, 130);
+      circles.push({
+        size: size,
+        x: rand(0, Math.max(1, w - size)),
+        y: rand(0, Math.max(1, h - size)),
+        color: colors[Math.floor(Math.random() * colors.length)],
+        phrase: host ? phrases[i] : null
+      });
+    }
+
+    // Shuffle so host circles aren't always drawn first
+    circles.sort(function () { return Math.random() - 0.5; });
+
+    circles.forEach(function (c, index) {
+      if (c.phrase) {
+        var msg = document.createElement('p');
+        msg.textContent = c.phrase;
+        msg.setAttribute('style',
+          'position:absolute; margin:0; z-index:1; display:flex; align-items:center; justify-content:center;' +
+          'text-align:center; font-family:Georgia, serif; font-style:italic; font-size:15px; line-height:1.3;' +
+          'color:#c9a3a3; text-shadow:0 0 8px rgba(160,20,20,0.6); padding:0 ' + (c.size * 0.15) + 'px; box-sizing:border-box;' +
+          'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
+          'opacity:0; transition:opacity 2.5s ease;');
+        field.appendChild(msg);
+        c.msg = msg;
+      }
+
+      var dot = document.createElement('button');
+      dot.setAttribute('aria-label', 'Pop circle');
+      dot.setAttribute('style',
+        'position:absolute; border:none; padding:0; cursor:pointer; border-radius:50%;' +
+        'z-index:' + (10 + index) + '; background:' + c.color + ';' +
+        'left:' + c.x + 'px; top:' + c.y + 'px; width:' + c.size + 'px; height:' + c.size + 'px;' +
+        'box-shadow:0 4px 14px rgba(0,0,0,0.55); transition:transform 0.25s ease, opacity 0.25s ease;');
+
+      dot.addEventListener('click', function () { pop(dot, c); });
+      field.appendChild(dot);
+      remaining++;
+    });
+
+    updateCounter();
+  }
+
+  function pop(dot, c) {
+    dot.style.transform = 'scale(1.3)';
+    dot.style.opacity = '0';
+    dot.style.pointerEvents = 'none';
+    setTimeout(function () { dot.remove(); }, 260);
+    remaining--;
+    updateCounter();
+
+    if (c.msg) {
+      c.msg.style.opacity = '1';
+      found++;
+      if (found === phrases.length) {
+        setTimeout(function () {
+          document.getElementById('gloom').style.opacity = '0.35';
+        }, 2000);
+      }
+    }
+
+    if (remaining === 0) {
+      setTimeout(function () {
+        counter.textContent = 'Circles left: 0. For now.';
+        title.textContent = 'Thank you for playing.';
+        document.title = 'we see you';
+      }, 1500);
+    }
+  }
+
+  function updateCounter() {
+    counter.textContent = 'Circles left: ' + remaining;
+  }
+
+  build();
+</script>
 </body>
 </html>
